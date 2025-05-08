@@ -1,0 +1,35 @@
+name: Build and Push DevLake Images to ACR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  TAG: v1.0.2-beta7
+
+jobs:
+  push-to-acr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure Container Registry
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      - name: Pull, Tag and Push DevLake Images
+        run: |
+          images=("devlake" "devlake-dashboard" "devlake-config-ui")
+
+          for image in "${images[@]}"; do
+            echo ">>> Pulling $image:${TAG}"
+            docker pull devlake.docker.scarf.sh/apache/${image}:${TAG}
+
+            echo ">>> Tagging as ${{ secrets.ACR_LOGIN_SERVER }}/${image}:${TAG}"
+            docker tag devlake.docker.scarf.sh/apache/${image}:${TAG} ${{ secrets.ACR_LOGIN_SERVER }}/${image}:${TAG}
+
+            echo ">>> Pushing ${{ secrets.ACR_LOGIN_SERVER }}/${image}:${TAG}"
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/${image}:${TAG}
+          done
